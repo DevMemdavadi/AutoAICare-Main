@@ -1,0 +1,63 @@
+name: Deploy Backend (AutoAICare)
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /var/www/autoaicare/Backend-AutoAICare
+            
+            # Store current requirements hash
+            OLD_HASH=$(md5sum requirements.txt 2>/dev/null | awk '{print $1}' || echo "none")
+            
+            git pull origin main
+            
+            # Check if requirements changed
+            NEW_HASH=$(md5sum requirements.txt | awk '{print $1}')
+            
+            source venv/bin/activate
+            
+            # Only install if requirements changed
+            if [ "$OLD_HASH" != "$NEW_HASH" ]; then
+              echo "📦 Requirements changed, installing dependencies..."
+              pip install -r requirements.txt
+            else
+              echo "✅ Requirements unchanged, skipping pip install"
+            fi
+
+            # Check if migrations are needed
+            PENDING_MIGRATIONS=$(python manage.py showmigrations --plan 2>/dev/null | grep -c "\[ \]")
+            if [ "$PENDING_MIGRATIONS" -gt 0 ] 2>/dev/null; then
+              echo "🔄 Found $PENDING_MIGRATIONS pending migration(s), running migrate..."
+              python manage.py migrate
+            else
+              echo "✅ No pending migrations, skipping migrate"
+            fi
+
+
+            # Check if static files need to be collected
+            # Run collectstatic with --dry-run to check if changes are needed
+            STATIC_OUTPUT=$(python manage.py collectstatic --noinput --dry-run 2>&1)
+            if echo "$STATIC_OUTPUT" | grep -q "copied\|created\|deleted"; then
+              echo "📁 Static files changed, collecting static files..."
+              python manage.py collectstatic --noinput
+            else
+              echo "✅ No static file changes, skipping collectstatic"
+            fi
+
+            sudo systemctl restart autoaicare-backend
+            sudo systemctl restart autoaicare-daphne

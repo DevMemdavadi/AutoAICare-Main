@@ -1,0 +1,184 @@
+/**
+ * Timer Alert Toast Styles
+ */
+
+.timer-alert-container {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 400px;
+}
+
+.timer-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 12px;
+    background: white;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    border-left: 4px solid;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(100px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.timer-alert:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
+}
+
+/* Warning Alert */
+.timer-alert.warning {
+    border-left-color: #f59e0b;
+    background: linear-gradient(to right, #fef3c7, white);
+}
+
+.timer-alert.warning .alert-icon {
+    color: #f59e0b;
+}
+
+/* Critical Alert */
+.timer-alert.critical {
+    border-left-color: #ef4444;
+    background: linear-gradient(to right, #fee2e2, white);
+    animation: slideIn 0.3s ease-out, pulse 1s infinite;
+}
+
+.timer-alert.critical .alert-icon {
+    color: #ef4444;
+}
+
+/* Overdue Alert */
+.timer-alert.overdue {
+    border-left-color: #991b1b;
+    background: linear-gradient(to right, #fecaca, white);
+    animation: slideIn 0.3s ease-out, shake 0.5s;
+}
+
+.timer-alert.overdue .alert-icon {
+    color: #991b1b;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.85;
+    }
+}
+
+@keyframes shake {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+        transform: translateX(-5px);
+    }
+
+    20%,
+    40%,
+    60%,
+    80% {
+        transform: translateX(5px);
+    }
+}
+
+.alert-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+}
+
+.alert-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.alert-title {
+    font-weight: 700;
+    font-size: 0.875rem;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.timer-alert.warning .alert-title {
+    color: #b45309;
+}
+
+.timer-alert.critical .alert-title {
+    color: #dc2626;
+}
+
+.timer-alert.overdue .alert-title {
+    color: #991b1b;
+}
+
+.alert-message {
+    font-size: 0.875rem;
+    color: #374151;
+    line-height: 1.4;
+    margin-bottom: 4px;
+}
+
+.alert-meta {
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.alert-close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: #9ca3af;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.alert-close:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #374151;
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+    .timer-alert-container {
+        left: 12px;
+        right: 12px;
+        max-width: none;
+    }
+
+    .timer-alert {
+        padding: 12px;
+    }
+}
