@@ -1,0 +1,14 @@
+Watching for file changes with StatReloader
+[17/Mar/2026 18:36:31] "POST /api/whatsapp/send/ HTTP/1.1" 200 181
+[17/Mar/2026 18:36:41] "POST /api/whatsapp/send/ HTTP/1.1" 200 181
+Unexpected error: 'charmap' codec can't encode character '\U0001f44b' in position 119: character maps to <undefined>
+Internal Server Error: /api/whatsapp/send/
+[17/Mar/2026 18:37:32] "POST /api/whatsapp/send/ HTTP/1.1" 500 111
+[17/Mar/2026 18:37:42] "POST /api/whatsapp/send/ HTTP/1.1" 200 181
+Unexpected error: 'charmap' codec can't encode character '\U0001f44b' in position 119: character maps to <undefined>
+Internal Server Error: /api/whatsapp/send/
+[17/Mar/2026 18:42:52] "POST /api/whatsapp/send/ HTTP/1.1" 500 111
+[17/Mar/2026 18:43:02] "POST /api/whatsapp/send/ HTTP/1.1" 200 181
+[17/Mar/2026 18:44:29] "POST /api/whatsapp/send/ HTTP/1.1" 200 181
+[17/Mar/2026 18:46:04] "POST /api/whatsapp/send/ HTTP/1.1" 200 181
+[17/Mar/2026 18:46:36] "POST /api/whatsapp/send/ HTTP/1.1" 200 181

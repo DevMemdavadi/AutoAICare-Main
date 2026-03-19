@@ -1,0 +1,53 @@
+<!-- save as test_websocket.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <h1>WebSocket Test</h1>
+    <div id="messages"></div>
+
+    <script>
+        // const socket = new WebSocket('ws://api.yogi.technoscaffold.com/ws/messages/');
+        // const socket = new WebSocket('wss://api.yogi.technoscaffold.com/ws/messages/');
+
+        // const socket = new WebSocket('ws://localhost:8000/ws/messages/');
+        const socket = new WebSocket('ws://localhost:8000/ws/whatsapp/chat/919904926409/');
+
+        socket.onopen = function() {
+            console.log('WebSocket connected!');
+        };
+
+        socket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            console.log('New message:', data);
+
+            const msgDiv = document.createElement('div');
+            msgDiv.textContent = `[${data.timestamp}] ${data.phone_number}: ${data.text}`;
+            if (data.message_type === 'template') {
+                msgDiv.style.fontStyle = 'italic';
+                msgDiv.style.color = '#555';
+            }
+            console.log('data.message_type', data.message_type)
+            if (data.message_type === 'chat_message') {
+                msgDiv.style.fontStyle = 'italic';
+                msgDiv.style.color = '#555';
+            }
+            document.getElementById('messages').appendChild(msgDiv);
+        };
+
+        socket.onclose = function() {
+            console.log('WebSocket closed.');
+        };
+
+        socket.onerror = function(error) {
+            console.error('WebSocket error:', error);
+        };
+
+        
+
+    </script>
+    
+</body>
+</html>

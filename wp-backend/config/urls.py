@@ -1,0 +1,39 @@
+"""
+URL configuration for config project.
+
+The `urlpatterns` list routes URLs to views. For more information please see:
+    https://docs.djangoproject.com/en/5.2/topics/http/urls/
+Examples:
+Function views
+    1. Add an import:  from my_app import views
+    2. Add a URL to urlpatterns:  path('', views.home, name='home')
+Class-based views
+    1. Add an import:  from other_app.views import Home
+    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
+Including another URLconf
+    1. Import the include() function: from django.urls import include, path
+    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+"""
+from django.contrib import admin
+from django.urls import path, include
+from users.views import CustomTokenObtainPairView, LogoutView, UserViewSet
+from rest_framework_simplejwt.views import TokenRefreshView
+
+me_view = UserViewSet.as_view({'get': 'me'})
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+
+    # Auth (test these FIRST)
+    path('api/auth/login/', CustomTokenObtainPairView.as_view(), name='auth_login'),
+    path('api/auth/logout/', LogoutView.as_view(), name='auth_logout'),
+    path('api/auth/refresh/', TokenRefreshView.as_view(), name='auth_refresh'),
+    path('api/auth/me/', me_view, name='auth_me'),
+
+    # Users API
+    path('api/users/', include('users.urls')),
+
+    # WhatsApp APIs (enable after users/login is verified)
+    path('api/whatsapp/', include('whatsapp.urls')),
+    path('api/whatsapp/dashboard/', include('whatsapp_dashboard.urls')),
+]
