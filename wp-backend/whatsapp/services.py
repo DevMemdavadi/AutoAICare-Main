@@ -15,7 +15,42 @@ class WhatsAppService:
     def __init__(self):
         self.base_url = "https://graph.facebook.com/v22.0"
         self.phone_number_id = settings.WHATSAPP_PHONE_NUMBER_ID
-        self.access_token = settings.WHATSAPP_ACCESS_TOKEN
+        
+        # 1. Sanitize the token to prevent trailing whitespace/newline issues
+        raw_token = getattr(settings, 'WHATSAPP_ACCESS_TOKEN', '')
+        self.access_token = str(raw_token).strip() if raw_token else ""
+        
+        # 2. Log first and last 4 characters safely
+        if self.access_token and len(self.access_token) > 8:
+            masked = f"{self.access_token[:4]}...{self.access_token[-4:]}"
+        else:
+            masked = "INVALID_OR_EMPTY"
+        logger.info(f"Initialized WhatsAppService. Token: {masked}")
+
+    def verify_connection(self):
+        """Perform a lightweight test request to verify token validity."""
+        if not self.access_token:
+            logger.error("WhatsApp API token is missing.")
+            return False, "WhatsApp API token is missing in .env configuration."
+            
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+        endpoint = f"{self.base_url}/{self.phone_number_id}"
+        try:
+            res = requests.get(endpoint, headers=headers, timeout=5)
+            if res.ok:
+                return True, "Valid"
+            else:
+                error_body = res.json() if 'application/json' in res.headers.get('Content-Type', '') else res.text
+                
+                # Detect Sandbox/Dev mode Recipient block (131030)
+                if isinstance(error_body, dict) and 'error' in error_body:
+                    code = error_body['error'].get('code')
+                    if code == 131030 or code == 100:
+                        return False, f"[DEV MODE ERROR] The recipient phone number is not in the allowed Meta developer sandbox test list."
+                        
+                return False, f"HTTP {res.status_code}: {error_body}"
+        except Exception as e:
+            return False, str(e)
 
     def upload_media(self, file_path):
         """
@@ -94,6 +129,11 @@ class WhatsAppService:
             frontend_id (str): Optional frontend ID for the message
         """
         try:
+            # Verify connectivity and token before sending
+            is_valid, err_msg = self.verify_connection()
+            if not is_valid:
+                raise ValueError(f"WhatsApp API Connectivity Failed: {err_msg}")
+
             # Format and validate phone number
             formatted_phone = self._format_phone_number(to_phone)
             logger.info(f"Sending WhatsApp message to {formatted_phone} (original: {to_phone})")
@@ -187,9 +227,22 @@ class WhatsAppService:
             except Exception as e:
                 logger.error(f"Failed to parse response JSON: {str(e)}")
                 logger.error(f"Raw response: {response.text}")
-                raise
+                # We do not raise here, allow raise_for_status to handle the actual HTTP error
             
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except requests.exceptions.HTTPError as e:
+                # Provide much clearer contextual error if the token was somehow magically valid during GET but failed POST
+                if e.response is not None:
+                    try:
+                        resp_json = e.response.json()
+                        if 'error' in resp_json:
+                            code = resp_json['error'].get('code')
+                            if code == 131030 or code == 100:
+                                raise ValueError(f"[DEV MODE ERROR] The recipient phone number ({formatted_phone}) is not in the allowed Meta developer test list.")
+                    except ValueError:
+                        pass
+                raise
             
             # Extract message ID from response
             message_id = None

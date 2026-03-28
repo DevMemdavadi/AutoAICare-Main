@@ -9,7 +9,8 @@ class WPClient:
     """
     def __init__(self, base_url, api_key):
         self.base_url = base_url.rstrip('/') if base_url else None
-        self.api_key = api_key
+        # Ensure there are no hidden newlines or spaces crashing Python's HTTP library
+        self.api_key = str(api_key).strip() if api_key else None
         
     def _get_headers(self):
         return {
@@ -46,9 +47,27 @@ class WPClient:
                 error_body = response.json() if 'application/json' in response.headers.get('Content-Type', '') else response.text
                 error_msg = error_body.get('error') if isinstance(error_body, dict) else error_body
                 logger.error(f"Failed to send message via WP Gateway: {error_msg}")
-                return {"status": "error", "error": str(error_msg)}
+                return {
+                    "status": "error", 
+                    "error": str(error_msg),
+                    "response_code": response.status_code,
+                    "response_body": str(error_body)
+                }
                 
             return response.json()
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to send message via WP Gateway: {e}")
-            return {"status": "error", "error": str(e)}
+            
+            # Extract response details if available
+            resp_code = None
+            resp_body = None
+            if hasattr(e, 'response') and e.response is not None:
+                resp_code = e.response.status_code
+                resp_body = e.response.text
+                
+            return {
+                "status": "error", 
+                "error": str(e),
+                "response_code": resp_code,
+                "response_body": resp_body
+            }

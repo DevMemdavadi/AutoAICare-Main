@@ -6,6 +6,7 @@ from services.serializers import ServicePackageSerializer, AddOnSerializer
 from services.models import ServicePackage
 from branches.serializers import BranchListSerializer, ServiceBaySerializer
 from users.validators import validate_phone_number
+from whatsapp.utils import send_booking_confirmation_whatsapp
 
 
 class BookingListSerializer(serializers.ModelSerializer):
@@ -420,6 +421,9 @@ class BookingCreateSerializer(serializers.ModelSerializer):
                 import logging
                 logger = logging.getLogger(__name__)
                 logger.error(f"Failed to track coupon usage: {str(e)}")
+        
+        # Send automated WhatsApp booking confirmation
+        send_booking_confirmation_whatsapp(booking)
         
         return booking
 

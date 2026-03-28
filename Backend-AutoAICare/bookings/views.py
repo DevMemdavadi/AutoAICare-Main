@@ -18,7 +18,7 @@ from .models import Booking
 from .serializers import BookingSerializer, BookingCreateSerializer, AdminWalkInBookingSerializer, BookingListSerializer
 from customers.models import Customer, Vehicle
 from jobcards.models import JobCard
-
+from whatsapp.utils import send_booking_confirmation_whatsapp
 
 def generate_customer_password(name: str, phone: str) -> str:
     """
@@ -907,6 +907,9 @@ class BookingViewSet(viewsets.ModelViewSet):
             # Serialize and return response
             serializer = BookingSerializer(booking, context={'request': request})
             response_data = serializer.data
+            
+            # Send automated WhatsApp booking confirmation
+            send_booking_confirmation_whatsapp(booking)
 
             if generated_password:
                 response_data['customer_password'] = generated_password
