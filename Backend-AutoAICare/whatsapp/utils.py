@@ -22,7 +22,7 @@ def normalize_phone_number(phone):
         
     return cleaned
 
-def send_booking_confirmation_whatsapp(booking):
+def send_booking_confirmation_whatsapp(booking, generated_password=None, user_id=None):
     """
     Sends an automated WhatsApp booking confirmation to the customer.
     Handles missing data gracefully by providing defaults.
@@ -90,22 +90,47 @@ def send_booking_confirmation_whatsapp(booking):
         # Using message_type="text" to ensure it sends without requiring prior Meta approval 
         # (Ideal for standard operational updates)
         
+        # Add-on Services details
+        addons_list = booking.addons.all() if booking.id else []
+        if addons_list:
+            addon_text = "\n".join([f"• {addon.name}" for addon in addons_list])
+        else:
+            addon_text = "None"
+            
+        addon_section = f"Add-on Services:\n{addon_text}\n\n"
+        
+        # Credentials details
+        credentials_section = ""
+        if generated_password:
+            # use phone as user id if not provided explicitly
+            uid = user_id if user_id else (raw_phone or "")
+            customer_email = booking.customer.user.email if getattr(booking, 'customer', None) and getattr(booking.customer, 'user', None) and booking.customer.user.email else "Not provided"
+            credentials_section = (
+                f"Login Credentials:\n"
+                f"Name: {customer_name}\n"
+                f"Email: {customer_email}\n"
+                f"Phone: {uid}\n"
+                f"Password: {generated_password}\n\n"
+            )
+
         message_content = (
             f"*Auto AI Care - Booking Confirmed*\n\n"
-            f"Dear {customer_name},\n"
+            f"Dear {customer_name},\n\n"
             f"Your booking has been successfully scheduled.\n\n"
-            f"*Details:*\n"
+            f"Details:\n"
             f"• Booking ID: {booking_id}\n"
             f"• Service: {service_name}\n"
             f"• Date: {booking_date}\n"
             f"• Time: {booking_time}\n"
             f"• Location: {location}\n\n"
-            f"For support, contact {contact_number}.\n"
+            f"{addon_section}"
+            f"{credentials_section}"
+            f"For support, contact {contact_number}\n"
             f"Ref: {int(timezone.now().timestamp())}"
         )
 
-        # 5. Send via WPClient
-        wp_url = "http://127.0.0.1:8000/api"
+        # Resolve WP Gateway URL from settings, fallback to port 8000 as wp-backend runs on 8000 natively
+        wp_url = settings.wp_url if getattr(settings, 'wp_url', None) else "http://127.0.0.1:8000/api"
         wp_client = WPClient(wp_url, settings.wp_api_key)
         
         # Now that connectivity is proven and the API issues are fixed,

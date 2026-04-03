@@ -45,7 +45,7 @@ class WPClient:
             response = requests.post(url, json=payload, headers=self._get_headers(), timeout=10)
             if not response.ok:
                 error_body = response.json() if 'application/json' in response.headers.get('Content-Type', '') else response.text
-                error_msg = error_body.get('error') if isinstance(error_body, dict) else error_body
+                error_msg = error_body.get('error') or error_body.get('detail') if isinstance(error_body, dict) else error_body
                 logger.error(f"Failed to send message via WP Gateway: {error_msg}")
                 return {
                     "status": "error", 

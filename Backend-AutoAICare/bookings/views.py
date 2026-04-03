@@ -909,7 +909,7 @@ class BookingViewSet(viewsets.ModelViewSet):
             response_data = serializer.data
             
             # Send automated WhatsApp booking confirmation
-            send_booking_confirmation_whatsapp(booking)
+            send_booking_confirmation_whatsapp(booking, generated_password=generated_password)
 
             if generated_password:
                 response_data['customer_password'] = generated_password

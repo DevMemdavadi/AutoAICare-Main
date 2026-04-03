@@ -59,11 +59,12 @@ class SendMessageView(APIView):
         if not settings or not settings.wp_api_key:
             return Response({"error": "WP Gateway API Key is not configured in settings."}, status=status.HTTP_400_BAD_REQUEST)
             
-        # Do NOT use ngrok or external WP URL. Use local Django endpoint only.
-        wp_url = "http://127.0.0.1:8000/api"
+        # Resolve WP Gateway URL from settings, fallback to port 8000 as wp-backend runs on 8000 natively
+        wp_url = settings.wp_url if getattr(settings, 'wp_url', None) else "http://127.0.0.1:8000/api"
             
         wp_client = WPClient(wp_url, settings.wp_api_key)
         result = wp_client.send_message(phone_number, content)
+        print(f"!!! WPCLIENT RAW RESULT: {result} !!!")
         
         if result.get('status') == 'success':
             # Safely extract message_id handling diverse formatting topologies
