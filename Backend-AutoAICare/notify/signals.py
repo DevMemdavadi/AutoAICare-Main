@@ -1,4 +1,4 @@
-﻿from django.db.models.signals import post_save
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 from bookings.models import Booking
 from jobcards.models import JobCard
@@ -37,7 +37,21 @@ def booking_notification_handler(sender, instance, created, **kwargs):
             return booking.primary_package.name
         return 'N/A'
 
+    def get_package_category(booking):
+        """Return comma-joined categories for this booking."""
+        try:
+            cats = list(booking.packages.values_list('category', flat=True))
+            cats = [str(c).capitalize() for c in set(cats) if c]
+            if cats:
+                return ', '.join(cats)
+        except Exception:
+            pass
+        if getattr(booking, 'primary_package', None) and getattr(booking.primary_package, 'category', None):
+            return str(booking.primary_package.category).capitalize()
+        return 'General'
+
     package_name = get_package_name(instance)
+    package_category = get_package_category(instance)
 
     # Broadcast status via WebSocket
     booking_data = {
@@ -46,6 +60,7 @@ def booking_notification_handler(sender, instance, created, **kwargs):
         'status': instance.status,
         'booking_datetime': instance.booking_datetime.isoformat(),
         'package_name': package_name,
+        'package_category': package_category,
         'total_price': float(instance.total_price),
         'vehicle_info': f"{instance.vehicle.brand} {instance.vehicle.model}",
     }
@@ -58,6 +73,7 @@ def booking_notification_handler(sender, instance, created, **kwargs):
             'booking_id': instance.id,
             'booking_datetime': instance.booking_datetime.strftime('%Y-%m-%d %H:%M'),
             'package_name': package_name,
+            'package_category': package_category,
             'total_price': float(instance.total_price) if instance.total_price else 0.0,
         }
         
@@ -100,6 +116,9 @@ def booking_notification_handler(sender, instance, created, **kwargs):
             'customer_name': instance.customer.user.name,
             'booking_id': instance.id,
             'booking_datetime': instance.booking_datetime.strftime('%Y-%m-%d %H:%M'),
+            'package_name': package_name,
+            'package_category': package_category,
+            'total_price': float(instance.total_price) if instance.total_price else 0.0,
         }
         
         send_notification.delay(

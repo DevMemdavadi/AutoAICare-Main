@@ -63,10 +63,23 @@ def send_booking_confirmation_whatsapp(booking, generated_password=None, user_id
         # 3. Extract Booking Details with Graceful Fallbacks
         booking_id = f"#{booking.id}"
         
-        # Get Service Name
+        # Get Service Name and Category
         service_name = "Auto Care Services"
+        category_name = "General"
         if booking.packages.exists():
             service_name = booking.packages.first().name
+            try:
+                cats = list(booking.packages.values_list('category', flat=True))
+                cats = [str(c).capitalize() for c in set(cats) if c]
+                if cats:
+                    category_name = ', '.join(cats)
+            except Exception:
+                pass
+        else:
+            if getattr(booking, 'primary_package', None):
+                service_name = booking.primary_package.name
+                if getattr(booking.primary_package, 'category', None):
+                    category_name = str(booking.primary_package.category).capitalize()
             
         # Get Date and Time
         try:
@@ -119,6 +132,7 @@ def send_booking_confirmation_whatsapp(booking, generated_password=None, user_id
             f"Your booking has been successfully scheduled.\n\n"
             f"Details:\n"
             f"• Booking ID: {booking_id}\n"
+            f"• Category: {category_name}\n"
             f"• Service: {service_name}\n"
             f"• Date: {booking_date}\n"
             f"• Time: {booking_time}\n"
