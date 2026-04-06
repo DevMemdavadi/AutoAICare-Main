@@ -71,6 +71,7 @@ import FloorManagerNotifications from './pages/floor_manager/Notifications';
 import WhatsAppLogs from './pages/admin/WhatsAppLogs';
 import PendingWhatsAppMessages from './pages/admin/PendingWhatsAppMessages';
 import WhatsAppPending from './pages/Admin/WhatsAppPending';
+import ChatsPage from './pages/admin/ChatsPage';
 
 // Purchase Module Pages
 import { Purchases, CreatePurchase, PurchaseDetails, Payments as PurchasePayments, Reports as PurchaseReports } from './pages/admin/purchases';
@@ -192,6 +193,7 @@ function App() {
           <Route path="whatsapp-logs" element={<WhatsAppLogs />} />
           <Route path="whatsapp-pending" element={<PendingWhatsAppMessages />} />
           <Route path="wp-events" element={<WhatsAppPending />} />
+          <Route path="chats" element={<ChatsPage />} />
           <Route path="accounting" element={<AccountingPage />} />
           <Route path="reward-settings" element={<RewardSettings />} />
           <Route path="appointments" element={<AppointmentManagement />} />

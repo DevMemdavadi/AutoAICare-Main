@@ -9,4 +9,5 @@ urlpatterns = [
     path('send/template/', views.send_template_message, name='send-template'),
     path('templates/', views.list_templates, name='list-templates'),
     path('status/<str:message_id>/', views.get_message_status, name='message-status'),
+    path('media/<str:message_id>/', views.get_media, name='get-media'),
 ] 

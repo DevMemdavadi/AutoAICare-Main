@@ -138,6 +138,7 @@ const AdminLayout = () => {
         { name: 'WhatsApp Logs', href: '/admin/whatsapp-logs', icon: MessageSquare },
         { name: 'Pending WhatsApp', href: '/admin/whatsapp-pending', icon: Clock },
         { name: 'WP Hub Events', href: '/admin/wp-events', icon: MessageSquare },
+        { name: 'Chats', href: '/admin/chats', icon: MessageSquare },
       ]
     }
   ];

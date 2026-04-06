@@ -104,6 +104,7 @@ INSTALLED_APPS = [
     'reports',
     'purchases',  # Purchase management
     'whatsapp',   # WP Gateway Webhook Integration
+    'chats',      # Chats / Conversation Tracking
     'silk',
 ]
 

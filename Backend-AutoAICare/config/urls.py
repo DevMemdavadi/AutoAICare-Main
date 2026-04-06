@@ -58,6 +58,7 @@ urlpatterns = [
     path('api/workflow/', include('jobcards.urls')),  # Workflow management endpoints
     path('api/reports/', include('reports.urls')),
     path('api/purchases/', include('purchases.urls')),  # Purchase management
+    path('api/chats/', include('chats.urls')),
     path('api/', include('whatsapp.urls')),  # Added to route /api/whatsapp/events/ correctly
    # path('api/v1/', include('whatsapp.urls')),
 ]

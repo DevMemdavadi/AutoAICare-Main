@@ -49,6 +49,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print(f"[ChatConsumer] Received from client: {text_data}")
         data = json.loads(text_data)
         
+        # Handle typing indicators
+        event_type = data.get('type')
+        if event_type in ['typing_start', 'typing_stop']:
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    "type": "typing_indicator",
+                    "event": data,
+                    "exclude_sender": self.channel_name,
+                }
+            )
+            return
+        
         # Handle the nested message structure
         if 'message' in data:
             message_data = data['message']
@@ -161,6 +174,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print(f"[ChatConsumer] Received broadcast: {event}")
         print(f"[ChatConsumer] Sending to client: {event['message']}")
         await self.send(text_data=json.dumps(event["message"]))
+
+    async def typing_indicator(self, event):
+        """Broadcast typing indicator to other clients in the group"""
+        if event.get('exclude_sender') == self.channel_name:
+            return
+            
+        await self.send(text_data=json.dumps(event["event"]))
 
     async def status_update(self, event):
         """Handle status update broadcasts"""

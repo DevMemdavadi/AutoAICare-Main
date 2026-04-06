@@ -21,7 +21,7 @@ class WPClient:
     def is_configured(self):
         return bool(self.base_url and self.api_key)
 
-    def send_message(self, phone_number, content, message_type='text', template_name=None, template_params=None):
+    def send_message(self, phone_number, content, message_type='text', template_name=None, template_params=None, media_path=None):
         if not self.is_configured():
             logger.error("WP Client not configured. Cannot send message.")
             return {"status": "error", "error": "WP Gateway not configured for this company."}
@@ -40,9 +40,11 @@ class WPClient:
             payload["template_name"] = template_name
         if template_params:
             payload["template_params"] = template_params
+        if media_path:
+            payload["media_path"] = media_path
             
         try:
-            response = requests.post(url, json=payload, headers=self._get_headers(), timeout=10)
+            response = requests.post(url, json=payload, headers=self._get_headers(), timeout=120)
             if not response.ok:
                 error_body = response.json() if 'application/json' in response.headers.get('Content-Type', '') else response.text
                 error_msg = error_body.get('error') or error_body.get('detail') if isinstance(error_body, dict) else error_body

@@ -55,6 +55,7 @@ class Contact(models.Model):
     type = models.CharField(max_length=100, blank=True, null=True)
     whatsapp_916359100911 = models.CharField(max_length=100, blank=True, null=True)
     email = models.EmailField(max_length=255, null=True, blank=True, unique=True)
+    branch_id = models.CharField(max_length=50, blank=True, null=True, db_index=True, help_text="CRM Branch ID")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='active')
     groups = models.ManyToManyField(ContactGroup, blank=True, related_name="contacts")
     last_message_at = models.DateTimeField(null=True, blank=True, help_text="Timestamp of the last message sent or received")
@@ -283,6 +284,7 @@ class ChatAssignment(models.Model):
     
     status = models.CharField(max_length=20, choices=ASSIGNMENT_STATUS_CHOICES, default='active')
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
+    branch_id = models.CharField(max_length=50, blank=True, null=True, db_index=True, help_text="CRM Branch ID")
     
     # Timestamps
     assigned_at = models.DateTimeField(auto_now_add=True)

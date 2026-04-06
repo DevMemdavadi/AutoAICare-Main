@@ -1,4 +1,5 @@
 import logging
+import json
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -33,7 +34,7 @@ class WPWebhookReceiverView(APIView):
     
     def post(self, request, *args, **kwargs):
         payload = request.data
-        print("FULL WEBHOOK PAYLOAD:", payload)
+        print("FULL PAYLOAD:", json.dumps(payload, indent=2))
         
         # Unwrap wp-backend middleware payloads gracefully
         if isinstance(payload, dict) and 'event' in payload and 'data' in payload:
@@ -55,13 +56,24 @@ class WPWebhookReceiverView(APIView):
                 phone = data.get('phone_number')
                 message_id = data.get('message_id')
                 text = data.get('text', '')
+                filename = data.get('filename')
+                media_url = data.get('media_url')
                 if phone and message_id:
                     msg_obj = {
                         'from': phone,
                         'id': message_id,
                         'text': {'body': text}
                     }
-                    payload = {'messages': [msg_obj]}
+                    # We will push a standardized structure into payload so MessageListAPIView can parse it accurately!
+                    payload = { entry: payload.get(entry) for entry in payload }
+                    if 'data' not in payload:
+                        payload['data'] = {}
+                    if filename:
+                        payload['data']['filename'] = filename
+                    if media_url:
+                        payload['data']['media_url'] = media_url
+                        
+                    payload['messages'] = [msg_obj]
 
         try:
             # 1. Extract statuses dynamically based on Format 1 or Format 2
@@ -156,16 +168,68 @@ class WPWebhookReceiverView(APIView):
                     except Exception:
                         company = None
                         
+                    # Extract underlying type safely
+                    ext_type = message_obj.get('type')
+                    if 'data' in payload and 'message_type' in payload['data']:
+                        ext_type = payload['data']['message_type']
+                    elif not ext_type:
+                        ext_type = 'text'
+                        
+                    # Pure Meta Extraction Fallback Check
+                    meta_filename = None
+                    meta_media_url = None
+                    if ext_type in ['image', 'document', 'audio', 'video', 'sticker']:
+                        media_obj = message_obj.get(ext_type, {})
+                        meta_filename = media_obj.get("filename")
+                        meta_id = media_obj.get("id")
+                        
+                        # Generate dynamic media_url mapping exclusively if wp-backend proxies the file internally natively
+                        if meta_id:
+                            meta_media_url = f"/api/whatsapp/media/{meta_id}/"
+                            
+                    # Inject Meta Fallbacks dynamically without disrupting native payload extraction flows
+                    if meta_filename:
+                        if 'data' not in payload: payload['data'] = {}
+                        if 'filename' not in payload['data']: payload['data']['filename'] = meta_filename
+                        
+                    if meta_media_url:
+                        if 'data' not in payload: payload['data'] = {}
+                        if 'media_url' not in payload['data']: payload['data']['media_url'] = meta_media_url
+                        
                     # Save to PendingWhatsAppEvent
-                    PendingWhatsAppEvent.objects.create(
+                    event = PendingWhatsAppEvent.objects.create(
                         company=company,
                         event_type=message_type,
                         phone_number=phone,
-                        message_type='text',
+                        message_type=ext_type,
                         message_content=message_content,
                         message_id=message_obj.get('id', ''),
                         raw_payload=payload
                     )
+                    
+                    filename = payload.get('data', {}).get('filename')
+                    print(f"MESSAGE SAVED: {event.id} {ext_type} {filename}")
+                    
+                    # Real-time synchronization bridging: Bump Conversation activity
+                    from chats.models import Conversation
+                    from django.utils import timezone
+                    from django.db.models import F
+                    
+                    preview_text = message_content
+                    if not preview_text and ext_type != 'text':
+                        preview_text = f"[{ext_type.capitalize()}]"
+                    elif not preview_text:
+                        preview_text = "[Message]"
+                    
+                    Conversation.objects.update_or_create(
+                        phone_number=phone,
+                        defaults={
+                            "last_message": preview_text,
+                            "last_message_time": timezone.now(),
+                            "unread_count": F("unread_count") + 1
+                        }
+                    )
+                    print("CONVERSATION CREATED OR UPDATED:", phone)
             
             return Response({"status": "success"})
             

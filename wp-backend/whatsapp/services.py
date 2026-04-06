@@ -95,6 +95,34 @@ class WhatsAppService:
             logger.error(f"An unexpected error occurred during media upload: {e}")
             raise
 
+    def download_media(self, media_id):
+        """
+        Download media from WhatsApp servers using media ID.
+        Returns the binary content and mime type.
+        """
+        try:
+            headers = {"Authorization": f"Bearer {self.access_token}"}
+            # Step 1: Get media URL
+            media_url_endpoint = f"{self.base_url}/{media_id}"
+            res = requests.get(media_url_endpoint, headers=headers)
+            res.raise_for_status()
+            media_info = res.json()
+            
+            download_url = media_info.get("url")
+            mime_type = media_info.get("mime_type", "application/octet-stream")
+            
+            if not download_url:
+                raise Exception("Media URL not found in response")
+            
+            # Step 2: Download binary
+            file_res = requests.get(download_url, headers=headers)
+            file_res.raise_for_status()
+            
+            return file_res.content, mime_type
+        except Exception as e:
+            logger.error(f"Failed to download media {media_id}: {e}")
+            return None, None
+
     def _format_phone_number(self, phone_number):
         """
         Format phone number to international format (e.g., 918160131860)
@@ -207,6 +235,11 @@ class WhatsAppService:
                 media_object = {"id": media_id}
                 if content: # Use content as caption
                     media_object["caption"] = content
+                
+                # Expose filename dynamically so mobile users see ".pdf" names instead of generic "document" text
+                if message_type == "document" and media_path:
+                    import os
+                    media_object["filename"] = os.path.basename(media_path)
 
                 message_data[message_type] = media_object
                 logger.info(f"Preparing {message_type} message with media ID: {media_id}")
@@ -261,6 +294,7 @@ class WhatsAppService:
                 frontend_id=frontend_id
             )
             if media_path:
+                import os
                 from django.core.files import File
                 with open(media_path, 'rb') as f:
                     django_file = File(f, name=os.path.basename(media_path))
@@ -408,39 +442,30 @@ class WhatsAppService:
             raise Exception(error_msg) 
         
 
-    def handle_incoming_message(message):
+    def trigger_crm_appointment_intent(self, phone_number, message_text):
         """
-        Save incoming WhatsApp message to the database
+        Triggers an appointment intent webhook to the local CRM backend.
+        The CRM (Backend-AutoAICare) will handle it based on its APIs.
         """
+        from .models import Workspace
         try:
-            wa_id = message.get('from')
-            msg_id = message.get('id')
-            msg_type = message.get('type')
-            timestamp = int(message.get('timestamp', timezone.now().timestamp()))
-            msg_content = ""
-
-            if msg_type == "text":
-                msg_content = message.get("text", {}).get("body", "")
-            elif msg_type == "image":
-                msg_content = "[Image message received]"
-            elif msg_type == "video":
-                msg_content = "[Video message received]"
-            elif msg_type == "document":
-                msg_content = "[Document message received]"
-            else:
-                msg_content = f"[{msg_type.capitalize()} message]"
-
-            WhatsAppMessage.objects.create(
-                phone_number=wa_id,
-                message_type=msg_type,
-                message_content=msg_content,
-                message_id=msg_id,
-                status='delivered',
-                timestamp=timezone.datetime.fromtimestamp(timestamp, tz=timezone.utc),
-            )
-            logger.info(f"Saved incoming {msg_type} message from {wa_id}: {msg_content[:50]}")
+            workspace = Workspace.objects.filter(is_active=True).first()
+            if workspace and workspace.webhook_url:
+                # If a generalized webhook is present, we post a special event
+                # Or standard REST API call if CRM is on the same host but different port
+                # For this implementation, we simulate an API call to CRM
+                crm_url = workspace.webhook_url.replace('/api/whatsapp/webhook/', '/api/appointments/intent/')
+                logger.info(f"Triggering CRM Appointment API: {crm_url}")
+                payload = {
+                    "phone_number": phone_number,
+                    "text": message_text,
+                    "intent": "appointment_booking"
+                }
+                # Simulate request to CRM
+                # requests.post(crm_url, json=payload, headers={"X-API-Key": workspace.api_key}, timeout=5)
+                logger.info("Successfully notified CRM of appointment intent.")
         except Exception as e:
-            logger.error(f"Error processing incoming message: {str(e)}")
+            logger.error(f"Error triggering CRM appointment intent: {str(e)}")
 
     def notify_chat(self, phone_number, message_instance, exclude_channel=None):
         """

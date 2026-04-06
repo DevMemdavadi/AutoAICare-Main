@@ -193,17 +193,26 @@ def handle_incoming_message(message):
     timestamp_dt = datetime.fromtimestamp(int(timestamp))
 
     # Handle different message types
+    media_id = None
+    filename = None
     if msg_type == "text":
         text = message.get("text", {}).get("body", "")
     elif msg_type == "image":
-        text = "[Image message received]"
+        media_id = message.get("image", {}).get("id")
+        text = message.get("image", {}).get("caption", "[Image message received]")
     elif msg_type == "video":
-        text = "[Video message received]"
+        media_id = message.get("video", {}).get("id")
+        text = message.get("video", {}).get("caption", "[Video message received]")
     elif msg_type == "document":
-        text = "[Document message received]"
+        media_id = message.get("document", {}).get("id")
+        # Do not use default string for filename; let it be None if missing, so CRM defaults gracefully.
+        filename = message.get("document", {}).get("filename")
+        text = message.get("document", {}).get("caption", filename if filename else "[Document]")
     elif msg_type == "audio":
+        media_id = message.get("audio", {}).get("id")
         text = "[Audio message received]"
     elif msg_type == "sticker":
+        media_id = message.get("sticker", {}).get("id")
         text = "[Sticker message received]"
     elif msg_type == "location":
         text = "[Location message received]"
@@ -225,20 +234,60 @@ def handle_incoming_message(message):
         is_read=False,
     )
 
+    if media_id:
+        try:
+            from django.core.files.base import ContentFile
+            import mimetypes
+            import uuid
+            service = WhatsAppService()
+            media_data, mime_type = service.download_media(media_id)
+            if media_data:
+                ext = mimetypes.guess_extension(mime_type) or '.bin'
+                file_name = f"{media_id}_{uuid.uuid4().hex[:8]}{ext}"
+                msg_obj.media.save(file_name, ContentFile(media_data), save=True)
+        except Exception as e:
+            print(f"❌ Failed to process media {media_id}: {e}")
+
     print(f"✅ Saved {msg_type} message from {phone}: {text}")
 
-    # Dispatch Webhook
-    dispatch_webhook("message_received", {
+    webhook_payload = {
         "phone_number": phone,
         "message_id": message_id,
         "message_type": msg_type,
         "text": text,
         "timestamp": timezone.now().isoformat()
-    })
+    }
+    
+    if media_id and msg_obj.media:
+        webhook_payload["media_url"] = f"/api/whatsapp/media/{message_id}/"
+    if filename:
+        webhook_payload["filename"] = filename
 
-    # --- Auto-reply logic (database-driven) ---
-    if msg_type == "text" and text and text != "[Text message received]":
+    # Dispatch Webhook
+    dispatch_webhook("message_received", webhook_payload)
+
+    # --- Auto-reply logic (database-driven) & Intent Detection ---
+    if msg_type == "text" and text:
         normalized = text.lower().strip()
+        
+        # Intent Detection for appointments
+        import re
+        if re.search(r'\b(appointment|booking|schedule|service)\b', normalized):
+            try:
+                service = WhatsAppService()
+                service.trigger_crm_appointment_intent(phone, text)
+                
+                from whatsapp_dashboard.models import ChatAssignment
+                assignment = ChatAssignment.objects.filter(phone_number=phone).first()
+                if assignment:
+                    if not isinstance(assignment.tags, list):
+                        assignment.tags = []
+                    if '#appointment' not in assignment.tags:
+                        assignment.tags.append('#appointment')
+                        assignment.save()
+            except Exception as e:
+                print(f"Failed to process appointment intent: {e}")
+
         # Find all active keywords
         keywords = AutoReplyKeyword.objects.filter(is_active=True)
         for kw in keywords:
@@ -280,6 +329,7 @@ def send_whatsapp_message(request):
         content = request.data.get('content')
         template_name = request.data.get('template_name')
         template_params = request.data.get('template_params')
+        media_path = request.data.get('media_path')
 
         if not phone_number:
             return Response({'error': 'Phone number is required'}, status=400)
@@ -295,11 +345,12 @@ def send_whatsapp_message(request):
 
         whatsapp_service = WhatsAppService()
         result = whatsapp_service.send_message(
-            phone_number,
-            message_type,
-            content,
-            template_name,
-            template_params
+            to_phone=phone_number,
+            message_type=message_type,
+            content=content,
+            template_name=template_name,
+            template_params=template_params,
+            media_path=media_path
         )
         
         # Note: WhatsAppService().send_message ALREADY calls self.notify_chat,
@@ -410,3 +461,21 @@ def list_templates(request):
     except Exception as e:
         logger.error(f"Failed to list templates: {str(e)}")
         return Response({'error': str(e)}, status=500)
+
+from rest_framework.permissions import AllowAny
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_media(request, message_id):
+    """
+    Securely serve a media file attached to a WhatsApp message.
+    Opened to AllowAny so <img src="..."> tags safely load natively without forcing Authorization headers across the DOM.
+    """
+    from django.http import FileResponse, Http404
+    try:
+        message = WhatsAppMessage.objects.get(message_id=message_id)
+        if not message.media:
+            raise Http404("Media not found for this message")
+        return FileResponse(message.media.open('rb'))
+    except WhatsAppMessage.DoesNotExist:
+        raise Http404("Message not found")

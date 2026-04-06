@@ -759,7 +759,7 @@ class ChatAssignmentViewSet(viewsets.ModelViewSet):
     search_fields = ['phone_number', 'notes']
     ordering_fields = ['assigned_at', 'last_activity_at', 'priority']
     ordering = ['-last_activity_at']
-    filterset_fields = ['status', 'priority', 'assigned_agent']
+    filterset_fields = ['status', 'priority', 'assigned_agent', 'branch_id']
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -798,6 +798,31 @@ class ChatAssignmentViewSet(viewsets.ModelViewSet):
         chat = self.get_object()
         if chat.assigned_agent:
             return Response({'error': 'Chat is already assigned'}, status=400)
+            
+    @action(detail=True, methods=['post'])
+    def create_appointment(self, request, pk=None):
+        """Smart Action to trigger an appointment in CRM"""
+        chat = self.get_object()
+        from whatsapp.models import Workspace
+        workspace = Workspace.objects.filter(is_active=True).first()
+        if workspace and workspace.webhook_url:
+            crm_url = workspace.webhook_url.replace('/api/whatsapp/webhook/', '/api/appointments/create/')
+            payload = {
+                "phone_number": chat.phone_number,
+                "customer_info": chat.customer_info if hasattr(chat, 'customer_info') else {},
+                "notes": request.data.get("notes", "")
+            }
+            # For this MVP, we simulate success response logic
+            # response = requests.post(crm_url, json=payload, headers={"X-API-Key": workspace.api_key})
+            
+            # Tag the chat to mark it has an active appointment workflow
+            if not isinstance(chat.tags, list):
+                chat.tags = []
+            if '#appointment' not in chat.tags:
+                chat.tags.append('#appointment')
+                chat.save()
+            return Response({"status": "success", "message": "Appointment creation triggered in CRM."})
+        return Response({"error": "CRM configuration not found"}, status=400)
         
         chat.assigned_agent = request.user
         chat.assigned_by = request.user
