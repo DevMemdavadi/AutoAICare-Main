@@ -107,10 +107,9 @@ def send_booking_confirmation_whatsapp(booking, generated_password=None, user_id
         addons_list = booking.addons.all() if booking.id else []
         if addons_list:
             addon_text = "\n".join([f"• {addon.name}" for addon in addons_list])
+            addon_section = f"Add-on Services:\n{addon_text}\n\n"
         else:
-            addon_text = "None"
-            
-        addon_section = f"Add-on Services:\n{addon_text}\n\n"
+            addon_section = ""
         
         # Credentials details
         credentials_section = ""
